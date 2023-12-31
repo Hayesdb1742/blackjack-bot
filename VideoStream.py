@@ -1,5 +1,6 @@
 import cv2
 from threading import Thread
+import numpy as np
 
 class VideoStream:
     def __init__(self, resolution=(1920, 1080), phoneOrComputer=1, fps=30, src=0):
@@ -8,19 +9,25 @@ class VideoStream:
         self.phoneOrComputer = phoneOrComputer
         self.cam = None
         self.stopped = False
-        self.frame = []
+        self.frame = np.empty([2,2])
+        
     def getCamera(self):
         self.cam = cv2.VideoCapture(0)
-
+        ret, frame = self.cam.read()
 
     def start(self):
         #threading
+        self.getCamera()
         Thread(target=self.update, name="updateThread").start()
         return self
     
     def update(self):
         while True:
-            _, self.frame = self.cam.read()
+            ret, testFrame = self.cam.read()
+            if ret:
+                self.frame = testFrame
+            else:
+                print("Frames not grabbing")
             if self.stopped:
                 return self.cam.release()
 
@@ -38,6 +45,5 @@ class VideoStream:
                 break
         self.cam.release()
         cv2.destroyAllWindows()
-
 
 
