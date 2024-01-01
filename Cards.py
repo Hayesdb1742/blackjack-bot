@@ -77,12 +77,12 @@ def load_suits(filepath):
         i=i+1
         return train_suits
 
-def preprecoess_image(image):
+def preprocess_image(image):
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     blur = cv.GaussianBlur(gray, (5,5), 0)
 
     imgW, imgH = np.shape(image)[:2]
-    bkg_level = gray[imgH/100][int(imgW)/2]
+    bkg_level = gray[int(imgH/100)][int(imgW/2)]
     thresh_level = bkg_level + BKG_THRESH
 
     retval, thresh = cv.threshold(blur, thresh_level, 255, cv.THRESH_BINARY)
@@ -91,7 +91,7 @@ def preprecoess_image(image):
 
 def find_cards(thresh_image):
 
-    dummy, cnts, hier = cv.findContours(thresh_image, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    cnts, hier = cv.findContours(thresh_image, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     index_sort = sorted(range(len(cnts)), key=lambda i: cv.contourArea(cnts[i]), reverse=True)
 
     if len(cnts) == 0:
@@ -99,7 +99,7 @@ def find_cards(thresh_image):
     
     cnts_sort = []
     hier_sort = []
-    cnt_is_card = np.zeroes(len(cnts), dtype=int)
+    cnt_is_card = np.zeros(len(cnts), dtype=int)
 
     for i in index_sort:
         cnts_sort.append(cnts[i])
@@ -137,8 +137,7 @@ def preprocess_card(contour, image):
     cent_y = int(average[0][1])
     qCard.center = [cent_x, cent_y]
 
-    qCard.wrap = flattener(image, pts, w, h)
-
+    qCard.warp = flattener(image, pts, w, h)
     Qcorner = qCard.warp[0:CORNER_HEIGHT, 0:CORNER_WIDTH]
     Qcorner_zoom = cv.resize(Qcorner, (0,0), fx=4, fy=4)
 
@@ -154,7 +153,7 @@ def preprocess_card(contour, image):
     Qsuit = query_thresh[186:336, 0:128]
 
     #need to find contours of suit and rank
-    dummy, Qrank_cnts, hier = cv.findContours(Qrank, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    Qrank_cnts, hier = cv.findContours(Qrank, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     Qrank_cnts = sorted(Qrank_cnts, key=cv.contourArea, reverse=True)
 
     if len(Qrank_cnts) != 0:
@@ -163,7 +162,7 @@ def preprocess_card(contour, image):
         Qrank_sized = cv.resize(Qrank_roi, (RANK_WIDTH, RANK_HEIGHT), 0, 0)
         qCard.rank_img = Qrank_sized
     
-    dummy, Qsuit_cnts, hier = cv.findContours(Qsuit, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    Qsuit_cnts, hier = cv.findContours(Qsuit, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     Qsuit_cnts = sorted(Qsuit_cnts, key=cv.contourArea, reverse=True)
 
     if len(Qsuit_cnts) != 0:
