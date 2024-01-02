@@ -46,6 +46,7 @@ while cam_quit == 0:
             temp_cnts = []
             for i in range(len(cards)):
                 temp_cnts.append(cards[i].contour)
+                print(cards[i].contour)
             cv.drawContours(image, temp_cnts, -1, (255,0,0), 2)
 
     cv.putText(image, "FPS: " + str(int(frame_rate_calc)), (10,26), font, 0.7, (255,0,255), 2, cv.LINE_AA)
@@ -61,4 +62,3 @@ while cam_quit == 0:
         cam_quit = 1
 cv.destroyAllWindows()
 stream.stop()
-
