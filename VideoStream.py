@@ -19,7 +19,7 @@ class VideoStream:
         #threading
         self.getCamera()
         Thread(target=self.update, name="updateThread").start()
-        return self
+        return self 
     
     def update(self):
         while True:

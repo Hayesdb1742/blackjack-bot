@@ -5,11 +5,11 @@ import numpy as np
 BKG_THRESH = 60
 CARD_THRESH = 30
 
-CARD_MAX_AREA = 120000
+CARD_MAX_AREA = 4000000
 CARD_MIN_AREA = 25000
 
 CORNER_WIDTH = 32
-CORNER_HEIGHT=84
+CORNER_HEIGHT= 110
 
 RANK_WIDTH = 70
 RANK_HEIGHT = 125
@@ -17,8 +17,8 @@ RANK_HEIGHT = 125
 SUIT_WIDTH = 70
 SUIT_HEIGHT = 100
 
-RANK_DIFF_MAX = 2000
-SUIT_DIFF_MAX = 700
+RANK_DIFF_MAX = 5000
+SUIT_DIFF_MAX = 1000    
 
 font = cv.FONT_HERSHEY_SIMPLEX
 
@@ -40,16 +40,24 @@ class Train_ranks:
     def __init__(self):
         self.img = []
         self.name = "Placeholder"
+        self.values = {}
+    def setValues(self, ranks):
+        self.ranks = ranks
+
+    def getValues(self):
+        for k,v in self.values:
+            print(k + ": " + v)
 
 
 class Train_suits:
     def __init__(self):
         self.img = []
         self.name = "Placeholder"
-    
+        self.values = {}
+    def setValues(self, ranks):
+        self.ranks = ranks
 
 def load_ranks(filepath):
-
 
     train_ranks = []
     i =0
@@ -62,7 +70,7 @@ def load_ranks(filepath):
         train_ranks[i].img = cv.imread(filepath+ filename, cv.IMREAD_GRAYSCALE)
         i = i+1
 
-        return train_ranks
+    return train_ranks
     
 
 def load_suits(filepath):
@@ -75,7 +83,7 @@ def load_suits(filepath):
         filename = Suit + '.jpg'
         train_suits[i].img = cv.imread(filepath + filename, cv.IMREAD_GRAYSCALE)
         i=i+1
-        return train_suits
+    return train_suits
 
 def preprocess_image(image):
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
@@ -109,10 +117,10 @@ def find_cards(thresh_image):
         size = cv.contourArea(cnts_sort[i])
         peri = cv.arcLength(cnts_sort[i], True)
         approx = cv.approxPolyDP(cnts_sort[i], 0.01*peri, True)
-        
         if ((size < CARD_MAX_AREA) and (size > CARD_MIN_AREA)
         and (hier_sort[i][3] == -1) and ((len(approx) == 6) or (len(approx) ==4))):
             cnt_is_card[i] = 1
+
 
         return cnts_sort, cnt_is_card
 
@@ -122,7 +130,6 @@ def preprocess_card(contour, image):
     qCard = CardInfo()
 
     qCard.contour = contour
-
     peri = cv.arcLength(contour,True)
     approx = cv.approxPolyDP(contour, 0.01*peri, True)
     pts = np.float32(approx)
@@ -136,11 +143,12 @@ def preprocess_card(contour, image):
     cent_x = int(average[0][0])
     cent_y = int(average[0][1])
     qCard.center = [cent_x, cent_y]
-
+    
     qCard.warp = flattener(image, pts, w, h)
+    cv.imwrite("testImages/card.jpg", qCard.warp)
     Qcorner = qCard.warp[0:CORNER_HEIGHT, 0:CORNER_WIDTH]
     Qcorner_zoom = cv.resize(Qcorner, (0,0), fx=4, fy=4)
-
+    cv.imwrite("testImages/corner.jpg", Qcorner_zoom)
     whiteLevel = Qcorner_zoom[15, int((CORNER_WIDTH*4)/2)]
     thresh_level = whiteLevel - CARD_THRESH
 
@@ -149,8 +157,8 @@ def preprocess_card(contour, image):
 
     retval, query_thresh = cv.threshold(Qcorner_zoom, thresh_level, 255, cv.THRESH_BINARY_INV)
 
-    Qrank = query_thresh[20:185, 0:128]
-    Qsuit = query_thresh[186:336, 0:128]
+    Qrank = query_thresh[50:175, 0:128]
+    Qsuit = query_thresh[176:426, 0:128]
 
     #need to find contours of suit and rank
     Qrank_cnts, hier = cv.findContours(Qrank, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
@@ -166,45 +174,50 @@ def preprocess_card(contour, image):
     Qsuit_cnts = sorted(Qsuit_cnts, key=cv.contourArea, reverse=True)
 
     if len(Qsuit_cnts) != 0:
-        x2, y2, w2, h2 = cv.boundingRect(Qsuit[0])
+        x2, y2, w2, h2 = cv.boundingRect(Qsuit_cnts[0])
         Qsuit_roi = Qsuit[y2:y2+h2, x2:x2+w2]
         Qsuit_sized = cv.resize(Qsuit_roi, (SUIT_WIDTH, SUIT_HEIGHT), 0, 0)
-        qCard.suit_img = Qsuit_sized      
-
+        qCard.suit_img = Qsuit_sized
     return qCard
 
 
 def match_card(qCard, train_ranks, train_suits):
-    bestRankMatchDiff = 10000
-    bestSuitMatchDiff = 10000
-    bestRankMatchName = "Unknown"
-    bestSuitMatchName = "Unknown"
+    best_rank_match_diff = 10000
+    best_suit_match_diff = 10000
+    best_rank_match_name = "Unknown"
+    best_suit_match_name = "Unknown"
     i =0
-
+    rankDiffValues = {}
+    suitDiffValues = {}
     if (len(qCard.rank_img) != 0) and (len(qCard.suit_img) != 0):
         for Trank in train_ranks:
             diff_img = cv.absdiff(qCard.rank_img, Trank.img)
             rank_diff = int(np.sum(diff_img)/255)
+            print(f"{Trank.name}:{rank_diff}") 
+            rankDiffValues[Trank.name] = rank_diff
 
-            if rank_diff < bestRankMatchDiff:
+            if rank_diff < best_rank_match_diff:
                 best_rank_diff_img = diff_img
-                bestRankMatchDiff = rank_diff
+                best_rank_match_diff = rank_diff   
                 best_rank_name = Trank.name
             
         for Tsuit in train_suits: 
             diff_img = cv.absdiff(qCard.suit_img, Tsuit.img)
             suit_diff = int(np.sum(diff_img)/255)
-
-            if suit_diff < bestSuitMatchDiff:
+            print(f"{Tsuit.name}:{suit_diff}")
+            suitDiffValues[Tsuit.name] = suit_diff
+            if suit_diff < best_suit_match_diff:
                 best_suit_diff_img = diff_img
-                bestSuitMatchDiff = suit_diff
-                best_suit_name = Tsuit.name
-    if (bestRankMatchDiff < RANK_DIFF_MAX):
-        bestRankMatchName = best_rank_name
-    if (bestSuitMatchDiff < SUIT_DIFF_MAX):
-        bestSuitMatchName = best_suit_name
+                best_suit_match_diff = suit_diff
+                best_suit_match_name = Tsuit.name
+    if (best_rank_match_diff < RANK_DIFF_MAX):
+        best_rank_match_name = best_rank_name
+    if (best_suit_match_diff < SUIT_DIFF_MAX):
+        best_suit_match_name = best_suit_match_name
 
-    return bestRankMatchName, bestSuitMatchName, bestRankMatchDiff, bestSuitMatchDiff
+    #train_ranks.setValues(rankDiffValues)
+    #train_suits.setValues(suitDiffValues)
+    return best_rank_match_name, best_suit_match_name, best_rank_match_diff, best_suit_match_diff
 
 
 def draw_results(image, qCard):
@@ -216,53 +229,76 @@ def draw_results(image, qCard):
     rank_name = qCard.best_rank_match
     suit_name = qCard.best_suit_match
 
-    cv.putText(image, (rank_name+' of'), (x-60, y-10), font, 1, (0,0,0), 3, cv.LINE_AA)
-    cv.putText(image, (suit_name+' of'), (x-60, y-10), font, 1, (50,200, 200), 2, cv.LINE_AA)
+    cv.putText(image, (rank_name+' of'), (x-60, y-10), font, 5, (0,0,0), 3, cv.LINE_AA)
+    cv.putText(image, (suit_name+' of'), (x-60, y-150), font, 5, (50,200, 200), 2, cv.LINE_AA)
 
     return image
 
 def flattener(image, pts, w, h):
-    rect = np.zeros((4,2), dtype="float32")
-
-    s = np.sum(pts, axis=2)
+    temp_rect = np.zeros((4,2), dtype = "float32")
+    
+    s = np.sum(pts, axis = 2)
 
     tl = pts[np.argmin(s)]
     br = pts[np.argmax(s)]
 
-    diff = np.diff(pts, axis=-1)
+    diff = np.diff(pts, axis = -1)
     tr = pts[np.argmin(diff)]
     bl = pts[np.argmax(diff)]
 
-    if w <= 0.8*h:
-        rect[0] = tl
-        rect[1] = tr
-        rect[2] = bl
-        rect[3] = br
-    if w > 1.2*h: #horizontal
-        rect[0] = bl
-        rect[1] = tl
-        rect[2] = tr
-        rect[3] = br
+    # Need to create an array listing points in order of
+    # [top left, top right, b  ottom right, bottom left]
+    # before doing the perspective transform
 
-    if w > 0.8*h and w < 1.2*h:
+    if w <= 0.8*h: # If card is vertically oriented
+        temp_rect[0] = tl
+        temp_rect[1] = tr
+        temp_rect[2] = br
+        temp_rect[3] = bl
+
+    if w >= 1.2*h: # If card is horizontally oriented
+        temp_rect[0] = bl
+        temp_rect[1] = tl
+        temp_rect[2] = tr
+        temp_rect[3] = br
+
+    # If the card is 'diamond' oriented, a different algorithm
+    # has to be used to identify which point is top left, top right
+    # bottom left, and bottom right.
+    
+    if w > 0.8*h and w < 1.2*h: #If card is diamond oriented
+        # If furthest left point is higher than furthest right point,
+        # card is tilted to the left.
         if pts[1][0][1] <= pts[3][0][1]:
-            rect[0] = pts[1][0]
-            rect[1] = pts[0][0]
-            rect[2] = pts[3][0]
-            rect[3] = pts[2][0]
-        
+            # If card is titled to the left, approxPolyDP returns points
+            # in this order: top right, top left, bottom left, bottom right
+            temp_rect[0] = pts[1][0] # Top left
+            temp_rect[1] = pts[0][0] # Top right
+            temp_rect[2] = pts[3][0] # Bottom right
+            temp_rect[3] = pts[2][0] # Bottom left
+
+        # If furthest left point is lower than furthest right point,
+        # card is tilted to the right
         if pts[1][0][1] > pts[3][0][1]:
-            rect[0] = pts[0][0]
-            rect[1] = pts[3][0]
-            rect[2] = pts[2][0]
-            rect[3] = pts[1][0]
+            # If card is titled to the right, approxPolyDP returns points
+            # in this order: top left, bottom left, bottom right, top right
+            temp_rect[0] = pts[0][0] # Top left
+            temp_rect[1] = pts[3][0] # Top right
+            temp_rect[2] = pts[2][0] # Bottom right
+            temp_rect[3] = pts[1][0] # Bottom left
+            
+        
+    maxWidth = 200
+    maxHeight = 300
 
-    maxWidth, maxHeight = 200, 300
-
-    dst = np.array([[0,0], [maxWidth-1, 0], [maxWidth-1, maxHeight-1], [0, maxHeight-1]], np.float32)
-    M = cv.getPerspectiveTransform(rect, dst)
+    # Create destination array, calculate perspective transform matrix,
+    # and warp card image
+    dst = np.array([[0,0],[maxWidth-1,0],[maxWidth-1,maxHeight-1],[0, maxHeight-1]], np.float32)
+    M = cv.getPerspectiveTransform(temp_rect,dst)
     warp = cv.warpPerspective(image, M, (maxWidth, maxHeight))
-    warp = cv.cvtColor(warp, cv.COLOR_BGR2GRAY)
+    warp = cv.cvtColor(warp,cv.COLOR_BGR2GRAY)
+
+        
 
     return warp
 

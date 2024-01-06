@@ -24,9 +24,9 @@ for i in range(len(cnts_sort)):
     size = cv.contourArea(cnts_sort[i])
     peri = cv.arcLength(cnts_sort[i], True)
     approx = cv.approxPolyDP(cnts_sort[i], 0.01*peri, True)
-    if ((size > CARD_MIN_AREA) and (len(approx) == 6)): 
+    if ((size > CARD_MIN_AREA) and (len(approx) == 4 or len(approx)==6) ): 
         drawing  = np.zeros((image.shape[0], image.shape[1], 3), dtype=np.uint8)
-
+        
         cv.drawContours(drawing, [cnts_sort[i]], -1, (0,255,0), 2)
         print(len(approx))
         cv.imshow('Contours', drawing)

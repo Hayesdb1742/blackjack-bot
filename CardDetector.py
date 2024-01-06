@@ -34,19 +34,17 @@ while cam_quit == 0:
         k = 0
         for i in range(len(cnts_sort)):
             if (cnt_is_card[i] == 1):
-                print("Detecting Cards")
                 cards.append(Cards.preprocess_card(cnts_sort[i], image))
                 cards[k].best_rank_match,cards[k].best_suit_match, cards[k].rank_diff, cards[k].suit_diff = Cards.match_card(cards[k], train_ranks, train_suits)
-                print(cards[k].best_rank_match,cards[k].best_suit_match, cards[k].rank_diff, cards[k].suit_diff)
+                #cv.imwrite('testImages/rank.jpg', cards[k].rank_img)
+                # cv.imwrite('testImages/card_suit.jpg', cards[k].suit_img)
                 image = Cards.draw_results(image, cards[k])
                 k += 1
         
         if len(cards) != 0:
-            print("Drawing contours")
             temp_cnts = []
             for i in range(len(cards)):
                 temp_cnts.append(cards[i].contour)
-                print(cards[i].contour)
             cv.drawContours(image, temp_cnts, -1, (255,0,0), 2)
 
     cv.putText(image, "FPS: " + str(int(frame_rate_calc)), (10,26), font, 0.7, (255,0,255), 2, cv.LINE_AA)
