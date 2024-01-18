@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 
+
 #Adaptive thresh
 BKG_THRESH = 60
 CARD_THRESH = 30
